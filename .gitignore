@@ -1,0 +1,24 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dados: grandes demais para o GitHub (limite de 100 MB por arquivo).
+# Os CSVs da ANP são baixados pelo usuário; o .pkl é gerado por `python src/main.py`.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Segredos e configurações locais
+.env
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
