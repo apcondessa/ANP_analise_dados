@@ -17,13 +17,13 @@ A base utilizada é composta por arquivos disponibilizados pela **Agência Nacio
 
 - Downloads the ANP files automatically, then cleans and standardizes them (encodings, decimal commas, units, invalid rows and duplicates).
 - Runs the same pipeline in **Python (pandas)** and in **SQL (PostgreSQL)**; automated tests check that both produce identical results.
-- Analyzes prices by fuel, state, region and year, and publishes an **interactive Streamlit dashboard**: <https://anp-combustiveis.streamlit.app/>
+- Analyzes prices by fuel, state, region and year, in nominal and inflation-adjusted terms (IPCA), and publishes an **interactive Streamlit dashboard**: <https://anp-combustiveis.streamlit.app/>
 - Includes 58 automated tests (pytest) and continuous integration with GitHub Actions.
 
 **Key findings**
 
 1. Prices peaked in mid-2022 and then dropped sharply: regular gasoline averaged R$ 7.29/liter in May 2022 and R$ 4.86 in October.
-2. Diesel rose the most: +31% from 2021 to 2025, versus +6% for gasoline and −4.5% for ethanol (yearly averages).
+2. After adjusting for inflation (IPCA, +32.8% over the period), only diesel became more expensive: comparing 2025 with 2021 yearly averages, diesel rose 5.6% in real terms, while gasoline fell 14.7% and ethanol fell 23.2% (in nominal terms: +31%, +6% and −4.6%).
 3. Ethanol became more competitive (from 79% to 69% of the gasoline price between 2021 and 2024), but in 2025 it was worth choosing (below 70% of the gasoline price) in only 4 states: MS, MT, SP and PR.
 4. The North is the most expensive region: in 2025, gasoline cost 10% more and ethanol 20% more than in the Southeast.
 
@@ -44,9 +44,18 @@ A base utilizada é composta por arquivos disponibilizados pela **Agência Nacio
 
 Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de janeiro de 2021 a dezembro de 2025.
 
-1. **2022 foi o ano do pico, seguido de uma queda brusca.** O preço médio mensal da gasolina comum chegou a **R$ 7,29/litro em maio de 2022** e caiu para **R$ 4,86 em outubro**, um recuo de um terço em cinco meses. O diesel S10 teve o pico um pouco depois (**R$ 7,60 em julho de 2022**). A queda coincide com a redução dos tributos estaduais (ICMS) sobre combustíveis em meados de 2022.
+1. **2022 foi o ano do pico, seguido de uma queda brusca.** O preço médio mensal da gasolina comum chegou a **R$ 7,29/litro em maio de 2022** e caiu para **R$ 4,86 em outubro**, um recuo de um terço em cinco meses. O diesel S10 teve o pico um pouco depois (**R$ 7,60 em julho de 2022**). Em valores corrigidos pela inflação, o pico da gasolina equivale a **R$ 8,41** em reais de dezembro de 2025. A queda coincide com a redução dos tributos estaduais (ICMS) sobre combustíveis em meados de 2022.
 
-2. **O diesel foi o combustível que mais subiu.** O preço médio anual do diesel aumentou **41% em 2022** e terminou 2025 **31% acima de 2021**, contra **+6% da gasolina comum** e **−4,5% do etanol** no mesmo período. Como o diesel move o transporte de cargas, esse aumento tende a se espalhar para o preço de outros produtos.
+2. **Descontada a inflação, só o diesel ficou mais caro.** De 2021 a 2025, o IPCA acumulou **32,8%**. Comparando a média de 2025 com a de 2021:
+
+   | Combustível | Variação nominal | **Variação real** (descontado o IPCA) |
+   |---|---|---|
+   | Diesel | +31,1% | **+5,6%** |
+   | GNV | +21,9% | **−2,2%** |
+   | Gasolina comum | +6,1% | **−14,7%** |
+   | Etanol | −4,6% | **−23,2%** |
+
+   Ou seja: em termos reais, gasolina e etanol ficaram **mais baratos** do que em 2021, que foi um ano de preços muito altos. O diesel foi o único que subiu acima da inflação; como ele move o transporte de cargas, esse aumento tende a se espalhar para o preço de outros produtos. (Valores reais em reais de dezembro de 2025; veja a seção [Correção pela inflação](#correção-pela-inflação-ipca).)
 
 3. **O etanol ficou mais competitivo, mas só compensa em poucos estados.** Pela regra prática, o etanol vale a pena quando custa menos de **70% do preço da gasolina** (ele rende menos por litro). No Brasil, essa razão caiu de **79% em 2021 para 69% em 2024** e ficou em **71% em 2025**. O número de estados abaixo de 70% passou de **0 (2021) para 9 (2024)** e, em 2025, ficou em **4: MS, MT, SP e PR**, estados com grande produção de etanol (de cana ou de milho). No Amapá, o etanol custou **90%** do preço da gasolina.
 
@@ -64,7 +73,11 @@ Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de j
 |---|
 | ![Preço por região](outputs/preco_medio_por_regiao.png) |
 
-**Limitações:** os preços são **nominais** (sem correção pela inflação); as médias são **simples**, de todos os preços coletados, sem ponderar pelo volume vendido em cada posto; e os dados vêm da amostra de postos pesquisada pela ANP, não de todos os postos do país.
+| Preço nominal x corrigido pela inflação |
+|---|
+| ![Nominal x real](outputs/precos_nominais_vs_reais.png) |
+
+**Limitações:** as análises usam preços **nominais**, exceto onde está indicado que foram corrigidos pelo IPCA (insights 1 e 2 e o gráfico nominal x real); as médias são **simples**, de todos os preços coletados, sem ponderar pelo volume vendido em cada posto; e os dados vêm da amostra de postos pesquisada pela ANP, não de todos os postos do país.
 
 ## Resultados
 
@@ -110,8 +123,10 @@ ANP_analise_dados/
 │
 ├── data/
 │   ├── raw/                         # CSVs originais da ANP (não versionados)
-│   └── processed/                   # Base tratada (gerada pelo src, não versionada)
-│       └── dados_anp_tratados.parquet
+│   ├── processed/                   # Base tratada (gerada pelo src, não versionada)
+│   │   └── dados_anp_tratados.parquet
+│   └── referencia/
+│       └── ipca_mensal.csv          # IPCA mensal do IBGE (versionado)
 │
 ├── notebooks/
 │   ├── Geracao_insights.ipynb       # Análise exploratória e indicadores
@@ -131,6 +146,7 @@ ANP_analise_dados/
 │   ├── dashboard_dados.py           # Gera o resumo usado pelo dashboard
 │   ├── data_processing.py           # Leitura e tratamento dos CSVs
 │   ├── download.py                  # Baixa os CSVs do site da ANP
+│   ├── inflacao.py                  # IPCA: download e correção dos preços
 │   ├── main.py                      # Executa o fluxo completo
 │   └── visualization.py             # Gráficos
 │
@@ -435,6 +451,28 @@ linha_precos_por_produto(df, "outputs")
 grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, 2025), 2025, "outputs")
 ```
 
+## Correção pela inflação (IPCA)
+
+Comparar o preço de 2021 com o de 2025 sem descontar a inflação exagera os aumentos: no período, o **IPCA** (índice oficial de inflação, calculado pelo IBGE) acumulou **32,8%**. Por isso, o projeto também calcula os **preços reais**, todos em reais de **dezembro de 2025**:
+
+```text
+preço real = preço nominal × IPCA de dez/2025 ÷ IPCA do mês da coleta
+```
+
+- O índice mensal está em `data/referencia/ipca_mensal.csv` (60 meses, tabela 1737 do IBGE). Ele fica no repositório, então nada precisa ser baixado. Um teste confere que o arquivo reproduz a inflação anual oficial de 2022 (5,79%), 2023 (4,62%) e 2024 (4,83%).
+- Para atualizar o índice (por exemplo, quando sair 2026): `python src/inflacao.py --fim 202612`.
+- `python src/main.py` mostra as médias anuais nominais e reais lado a lado e gera o gráfico `precos_nominais_vs_reais.png`.
+- No **dashboard**, a chave **Corrigir pela inflação (IPCA)** mostra todos os gráficos e indicadores em reais de dezembro de 2025.
+
+```python
+from src.inflacao import carregar_ipca, deflacionar
+from src.analysis import variacao_anual_real, variacao_no_periodo
+
+df_real = deflacionar(df, carregar_ipca())   # acrescenta a coluna valor_real
+variacao_anual_real(df_real)                 # médias anuais nominal e real, com variações
+variacao_no_periodo(df_real)                 # primeiro x último ano, nominal e real
+```
+
 ## Dashboard interativo (Streamlit)
 
 **Acesse online: <https://anp-combustiveis.streamlit.app/>** (não precisa instalar nada)
@@ -449,6 +487,8 @@ O dashboard permite explorar os preços escolhendo o **combustível**, as **regi
 - **Etanol x Gasolina**: em quais estados o etanol compensa (regra dos 70%) no período escolhido;
 - **Regiões**: preço médio por região;
 - **Dados**: tabela por estado (média, mínimo, máximo, coletas e bandeiras), com download em CSV.
+
+A chave **Corrigir pela inflação (IPCA)**, na barra lateral, converte todos os valores para reais de dezembro de 2025.
 
 Para rodar no seu próprio computador, a partir da raiz do projeto:
 
@@ -515,7 +555,6 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 ## Possíveis próximos passos
 
 - criar pipeline ETL/ELT;
-- corrigir os preços pela inflação (IPCA) para analisar a variação real;
 - automatizar a atualização dos dados.
 
 ## Projeto para portfólio

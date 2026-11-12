@@ -44,6 +44,11 @@ def reais(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def sem_formula(texto: str) -> str:
+    """Escapa o "$": o Streamlit lê o texto entre dois "$" como fórmula matemática."""
+    return texto.replace("$", "\\$")
+
+
 def mes_ano(data) -> str:
     return pd.Timestamp(data).strftime("%m/%Y")
 
@@ -68,19 +73,38 @@ with st.sidebar:
     inicio, fim = st.select_slider(
         "Período", options=meses, value=(meses[0], meses[-1]), format_func=mes_ano
     )
+    corrigir = False
+    if logica.tem_ipca(precos):
+        base_ipca = logica.mes_base_ipca(precos)
+        corrigir = st.toggle(
+            "Corrigir pela inflação (IPCA)",
+            help=(
+                f"Mostra todos os preços em reais de {mes_ano(base_ipca)}, para comparar "
+                "períodos diferentes sem o efeito da inflação."
+            ),
+        )
+        if corrigir:
+            precos = logica.em_reais_corrigidos(precos)
     st.caption(
         "Fonte: ANP, série histórica de preços de combustíveis (2021–2025). "
-        "Médias simples dos preços coletados, em valores nominais."
+        "Médias simples dos preços coletados. Inflação: IPCA (IBGE)."
     )
 
 unidade = logica.unidade(produto)
+descricao_valores = (
+    f"preços em {unidade}, corrigidos pelo IPCA (R$ de {mes_ano(base_ipca)})"
+    if corrigir
+    else f"preços em {unidade} (valores nominais)"
+)
 nome_produto = logica.PRODUTOS[produto]
 recorte = logica.filtrar(precos, [produto], estados, inicio, fim)
 
 st.title("⛽ Preços de Combustíveis no Brasil")
 st.caption(
-    f"{nome_produto} · {len(estados)} estado(s) · {mes_ano(inicio)} a {mes_ano(fim)} · "
-    f"preços em {unidade}"
+    sem_formula(
+        f"{nome_produto} · {len(estados)} estado(s) · {mes_ano(inicio)} a {mes_ano(fim)} · "
+        f"{descricao_valores}"
+    )
 )
 
 if recorte.empty:
@@ -188,8 +212,10 @@ with aba_estados:
         (barras + rotulos + media_geral).properties(height=altura), width="stretch"
     )
     st.caption(
-        f"Linha tracejada: média dos estados selecionados ({reais(ind['media'])}). "
-        "Estados com poucas coletas (veja na aba Dados) têm médias menos confiáveis."
+        sem_formula(
+            f"Linha tracejada: média dos estados selecionados ({reais(ind['media'])}). "
+            "Estados com poucas coletas (veja na aba Dados) têm médias menos confiáveis."
+        )
     )
 
 # --------------------------------------------------------------------------- etanol x gasolina

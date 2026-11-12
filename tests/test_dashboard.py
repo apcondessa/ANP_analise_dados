@@ -105,10 +105,52 @@ def test_app_troca_de_produto(app):
     app.selectbox[0].set_value("GNV").run()
     assert not app.exception
     assert app.metric[0].value == "R$ 5,04"
-    assert "R$/m³" in app.caption[0].value
+    legenda = app.caption[0].value.replace("\\$", "$")  # o app escapa o "$"
+    assert "R$/m³" in legenda
+    assert "valores nominais" in legenda
 
 
 def test_app_sem_estados(app):
     app.multiselect[1].set_value([]).run()
     assert not app.exception
     assert app.warning
+
+
+# --------------------------------------------------------------------------- inflação
+def test_resumo_com_ipca_e_correcao(base):
+    ipca = pd.DataFrame(
+        {"mes": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]),
+         "indice": [100.0, 110.0, 125.0]}
+    )
+    resumo = resumo_mensal(base, ipca)
+    assert logica.tem_ipca(resumo)
+    assert logica.mes_base_ipca(resumo) == pd.Timestamp("2024-03-01")
+    corrigido = logica.em_reais_corrigidos(resumo)
+    gasolina = logica.media_por(logica.filtrar(corrigido, ["GASOLINA"]), ["produto"])
+    assert gasolina["media"].iloc[0] == pytest.approx(5.79 * 1.25)  # janeiro: fator 1,25
+    with pytest.raises(ValueError):
+        logica.em_reais_corrigidos(resumo_mensal(base))
+
+
+def test_arquivo_do_repositorio_tem_ipca():
+    precos = logica.carregar_precos()
+    assert logica.tem_ipca(precos)
+    assert logica.mes_base_ipca(precos) == pd.Timestamp("2025-12-01")
+
+
+def test_app_com_correcao_pela_inflacao(base, tmp_path, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    ipca = pd.DataFrame(
+        {"mes": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]),
+         "indice": [100.0, 110.0, 125.0]}
+    )
+    gerar_dados_dashboard(base, tmp_path, ipca=ipca)
+    monkeypatch.setenv("ANP_DASHBOARD_DADOS", str(tmp_path))
+    app = AppTest.from_file(str(APP), default_timeout=60).run()
+    assert app.metric[0].value == "R$ 5,79"
+    app.toggle[0].set_value(True).run()
+    assert not app.exception
+    assert app.metric[0].value == "R$ 7,24"  # 5,79 x 1,25
+    assert "corrigidos pelo IPCA" in app.caption[0].value
+
