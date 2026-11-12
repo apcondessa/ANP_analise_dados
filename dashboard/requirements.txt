@@ -1,0 +1,5 @@
+# Dependências do dashboard (também usadas pelo Streamlit Community Cloud)
+altair==6.3.0
+pandas==3.0.6
+pyarrow==26.0.1
+streamlit==1.67.0

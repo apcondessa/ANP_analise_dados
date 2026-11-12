@@ -67,6 +67,7 @@ Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de j
 - PyArrow (formato Parquet)
 - PostgreSQL e SQL (scripts em `sql/` e notebook `Geracao_insights.ipynb`)
 - Jupyter Notebook
+- Streamlit e Altair (dashboard interativo)
 - pytest e Ruff (testes e verificação de estilo)
 - GitHub Actions (integração contínua)
 - Git/GitHub
@@ -75,6 +76,12 @@ Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de j
 
 ```text
 ANP_analise_dados/
+│
+├── dashboard/                       # Dashboard interativo (Streamlit)
+│   ├── app.py                       # Interface: filtros, indicadores e gráficos
+│   ├── logica.py                    # Cálculos do dashboard
+│   ├── dados/                       # Resumo mensal usado pelo dashboard (versionado)
+│   └── requirements.txt             # Dependências do dashboard
 │
 ├── data/
 │   ├── raw/                         # CSVs originais da ANP (não versionados)
@@ -96,6 +103,7 @@ ANP_analise_dados/
 │   ├── __init__.py
 │   ├── analysis.py                  # Estatísticas descritivas
 │   ├── carregar_banco.py            # Carrega os CSVs no PostgreSQL
+│   ├── dashboard_dados.py           # Gera o resumo usado pelo dashboard
 │   ├── data_processing.py           # Leitura e tratamento dos CSVs
 │   ├── download.py                  # Baixa os CSVs do site da ANP
 │   ├── main.py                      # Executa o fluxo completo
@@ -200,7 +208,7 @@ O script irá:
 
 1. ler os CSVs presentes em `data/raw/`;
 2. tratar os dados;
-3. salvar a base em `data/processed/dados_anp_tratados.parquet`;
+3. salvar a base em `data/processed/dados_anp_tratados.parquet` e o resumo do dashboard em `dashboard/dados/`;
 4. apresentar estatísticas por produto e ano;
 5. apresentar a quantidade de bandeiras por estado;
 6. apresentar a variação anual dos preços, a média por região e a razão etanol/gasolina por estado.
@@ -285,7 +293,7 @@ Colunas da base tratada: `data_coleta`, `regiao`, `estado`, `municipio`, `cnpj` 
 
 ## Testes
 
-Os testes ficam em `tests/` e usam CSVs pequenos de exemplo, criados no próprio teste (não precisam dos dados da ANP nem de internet). Eles conferem, entre outros pontos: leitura em UTF-8 com BOM e em latin1, conversão de valores com vírgula e de datas `dd/mm/aaaa`, descarte de linhas vazias, remoção de duplicatas, padronização da unidade do GNV, os cálculos das análises, a geração dos 14 gráficos e o download (incluindo a retomada após uma queda de conexão).
+Os testes ficam em `tests/` e usam CSVs pequenos de exemplo, criados no próprio teste (não precisam dos dados da ANP nem de internet). Eles conferem, entre outros pontos: leitura em UTF-8 com BOM e em latin1, conversão de valores com vírgula e de datas `dd/mm/aaaa`, descarte de linhas vazias, remoção de duplicatas, padronização da unidade do GNV, os cálculos das análises, a geração dos 17 gráficos, o download (incluindo a retomada após uma queda de conexão) e o dashboard (o resumo mensal dá as mesmas médias da base completa, e a interface abre e responde aos filtros sem erros).
 
 ```bash
 pip install -r requirements/requirements-dev.txt
@@ -401,6 +409,39 @@ linha_precos_por_produto(df, "outputs")
 grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, 2025), 2025, "outputs")
 ```
 
+## Dashboard interativo (Streamlit)
+
+![Dashboard](dashboard/screenshot.png)
+
+O dashboard permite explorar os preços escolhendo o **combustível**, as **regiões**, os **estados** e o **período**. Ele mostra:
+
+- **indicadores**: preço médio, variação entre o primeiro e o último mês, estado mais caro e mais barato;
+- **Evolução**: preço médio mensal, com a opção de comparar regiões ou até 8 estados;
+- **Estados**: ranking do preço médio por estado;
+- **Etanol x Gasolina**: em quais estados o etanol compensa (regra dos 70%) no período escolhido;
+- **Regiões**: preço médio por região;
+- **Dados**: tabela por estado (média, mínimo, máximo, coletas e bandeiras), com download em CSV.
+
+Para rodar no seu computador, a partir da raiz do projeto:
+
+```bash
+pip install -r dashboard/requirements.txt
+streamlit run dashboard/app.py
+```
+
+O navegador abre em `http://localhost:8501`.
+
+**Não precisa baixar os dados da ANP:** o dashboard usa um resumo mensal por estado e produto (`dashboard/dados/`, cerca de 120 KB), que fica no repositório. Com somas e contagens, as médias são exatamente as mesmas da base completa. O resumo é atualizado sempre que você roda `python src/main.py`.
+
+### Publicar na internet (gratuito)
+
+1. Acesse <https://share.streamlit.io> e entre com a sua conta do GitHub.
+2. Clique em **Create app** (ou **New app**) para publicar um app a partir do GitHub.
+3. Preencha: repositório `apcondessa/ANP_analise_dados`, branch `main` e arquivo `dashboard/app.py`.
+4. Clique em **Deploy**. Em alguns minutos o dashboard terá um endereço público, que você pode colocar no topo deste README e no seu currículo.
+
+O Streamlit Community Cloud instala as dependências de `dashboard/requirements.txt` automaticamente.
+
 ## Banco de dados (PostgreSQL)
 
 Além do fluxo em Python, o projeto tem um fluxo equivalente em **SQL**, na pasta `sql/`:
@@ -445,13 +486,13 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 
 - criar pipeline ETL/ELT;
 - corrigir os preços pela inflação (IPCA) para analisar a variação real;
-- criar um dashboard em Power BI ou Streamlit;
+- publicar o dashboard no Streamlit Community Cloud (passo a passo na seção do dashboard);
 - automatizar a atualização dos dados.
 
 ## Projeto para portfólio
 
 Este projeto demonstra competências em:
 
-**Python | Pandas | SQL (PostgreSQL: COPY, CTEs, funções de janela, funções PL/pgSQL) | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | Jupyter Notebook | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
+**Python | Pandas | SQL (PostgreSQL: COPY, CTEs, funções de janela, funções PL/pgSQL) | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | Jupyter Notebook | Dashboard interativo (Streamlit) | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
 
 O objetivo da organização em `src/` é separar a lógica reutilizável dos notebooks, tornando o projeto mais próximo de uma estrutura utilizada em projetos profissionais de dados.
