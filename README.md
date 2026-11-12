@@ -15,6 +15,32 @@ A base utilizada é composta por arquivos disponibilizados pela **Agência Nacio
 - Identificar a quantidade de bandeiras distintas por estado.
 - Criar visualizações que facilitem a interpretação dos dados.
 
+## Principais insights (2021–2025)
+
+Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de janeiro de 2021 a dezembro de 2025.
+
+1. **2022 foi o ano do pico, seguido de uma queda brusca.** O preço médio mensal da gasolina comum chegou a **R$ 7,29/litro em maio de 2022** e caiu para **R$ 4,86 em outubro**, um recuo de um terço em cinco meses. O diesel S10 teve o pico um pouco depois (**R$ 7,60 em julho de 2022**). A queda coincide com a redução dos tributos estaduais (ICMS) sobre combustíveis em meados de 2022.
+
+2. **O diesel foi o combustível que mais subiu.** O preço médio anual do diesel aumentou **41% em 2022** e terminou 2025 **31% acima de 2021**, contra **+6% da gasolina comum** e **−4,5% do etanol** no mesmo período. Como o diesel move o transporte de cargas, esse aumento tende a se espalhar para o preço de outros produtos.
+
+3. **O etanol ficou mais competitivo, mas só compensa em poucos estados.** Pela regra prática, o etanol vale a pena quando custa menos de **70% do preço da gasolina** (ele rende menos por litro). No Brasil, essa razão caiu de **79% em 2021 para 69% em 2024** e ficou em **71% em 2025**. O número de estados abaixo de 70% passou de **0 (2021) para 9 (2024)** e, em 2025, ficou em **4: MS, MT, SP e PR**, estados com grande produção de etanol (de cana ou de milho). No Amapá, o etanol custou **90%** do preço da gasolina.
+
+4. **A Região Norte é a mais cara.** Em 2025, a gasolina comum custou em média **R$ 6,72 no Norte** contra **R$ 6,12 no Sudeste** (+10%), e o etanol, **R$ 5,09 contra R$ 4,24** (+20%). Entre os estados, a gasolina mais cara foi a do **Acre (R$ 7,67)** e a mais barata, a do **Piauí (R$ 5,93)**: uma diferença de **29%**.
+
+5. **O GNV subiu forte e depois estabilizou.** Alta de **30% em 2022**, e variação de apenas **−0,6% em 2025**. Atenção: em vários estados há pouquíssimas coletas de GNV (RO, RR, PA e GO têm só 1 cada), por isso as comparações entre estados valem apenas para os que têm muitas coletas, como RJ e SP.
+
+6. **São Paulo e Paraná têm a maior variedade de bandeiras** (24 e 23 distribuidoras diferentes), enquanto o Amapá tem apenas 5.
+
+| Etanol como % da gasolina por estado (2025) | Variação anual do preço médio |
+|---|---|
+| ![Razão etanol/gasolina](outputs/razao_etanol_gasolina_por_estado.png) | ![Variação anual](outputs/variacao_anual_precos.png) |
+
+| Preço médio por região (2025) |
+|---|
+| ![Preço por região](outputs/preco_medio_por_regiao.png) |
+
+**Limitações:** os preços são **nominais** (sem correção pela inflação); as médias são **simples**, de todos os preços coletados, sem ponderar pelo volume vendido em cada posto; e os dados vêm da amostra de postos pesquisada pela ANP, não de todos os postos do país.
+
 ## Resultados
 
 | Evolução do preço por produto | Bandeiras por estado |
@@ -172,7 +198,8 @@ O script irá:
 2. tratar os dados;
 3. salvar a base em `data/processed/dados_anp_tratados.parquet`;
 4. apresentar estatísticas por produto e ano;
-5. apresentar a quantidade de bandeiras por estado.
+5. apresentar a quantidade de bandeiras por estado;
+6. apresentar a variação anual dos preços, a média por região e a razão etanol/gasolina por estado.
 
 Para **também gerar todos os gráficos** em `outputs/`:
 
@@ -180,12 +207,14 @@ Para **também gerar todos os gráficos** em `outputs/`:
 python src/main.py --graficos
 ```
 
-O fluxo completo, com os gráficos, leva menos de 1 minuto. Ele gera 14 imagens PNG:
+O fluxo completo, com os gráficos, leva menos de 1 minuto. Ele gera 17 imagens PNG:
 
 - `<produto>_valor_venda.png`: boxplot geral de cada um dos 6 produtos;
 - `<produto>_valor_venda_por_estado.png`: boxplot por estado de cada produto;
 - `quantidade_bandeiras_por_estado.png`;
-- `grafico_produto_data_coleta_valor_venda.png`.
+- `grafico_produto_data_coleta_valor_venda.png`;
+- `razao_etanol_gasolina_por_estado.png`, `preco_medio_por_regiao.png` (ano mais recente da base);
+- `variacao_anual_precos.png`.
 
 ### Resultado esperado
 
@@ -296,22 +325,66 @@ from src.analysis import bandeiras_por_estado
 resultado = bandeiras_por_estado(df)
 ```
 
+### Variação anual
+
+Preço médio de cada produto por ano e a variação (%) em relação ao ano anterior.
+
+```python
+from src.analysis import variacao_anual
+
+resultado = variacao_anual(df)
+```
+
+### Média por região
+
+Preço médio de cada produto por região (Norte, Nordeste, Centro-Oeste, Sudeste e Sul), opcionalmente de um ano.
+
+```python
+from src.analysis import media_por_regiao
+
+resultado = media_por_regiao(df, ano=2025)
+```
+
+### Dispersão de preços por estado
+
+Diferença entre os percentis 95 e 5 do preço de um produto em cada estado (mede o quanto os preços variam dentro do estado), com o número de coletas. Os percentis evitam que poucos valores extremos dominem o resultado.
+
+```python
+from src.analysis import amplitude_por_estado
+
+resultado = amplitude_por_estado(df, "GASOLINA", ano=2025)
+```
+
+### Razão etanol/gasolina
+
+Preço médio do etanol dividido pelo da gasolina comum em cada estado. A coluna `compensa_etanol` indica se a razão ficou abaixo de 70%.
+
+```python
+from src.analysis import razao_etanol_gasolina
+
+resultado = razao_etanol_gasolina(df, ano=2025)
+```
+
 ## Visualizações
 
 O módulo `src/visualization.py` reúne funções para geração de gráficos:
 
 - evolução do preço médio mensal por produto, com o GNV (R$/m³) em painel separado dos combustíveis líquidos (R$/litro);
 - boxplot geral e por estado de cada produto, com a unidade no título, os estados ordenados pela mediana do preço e o número de coletas de cada estado;
-- quantidade de bandeiras por estado.
+- quantidade de bandeiras por estado;
+- razão etanol/gasolina por estado, com a linha de 70%;
+- variação anual do preço médio de cada produto (mapa de calor);
+- preço médio dos combustíveis líquidos por região.
 
 Quando uma pasta de saída é informada, o gráfico é salvo em PNG e a figura é fechada.
 
 ```python
-from src.analysis import bandeiras_por_estado
+from src.analysis import bandeiras_por_estado, razao_etanol_gasolina
 from src.visualization import (
     boxplot_produto_estado,
     boxplot_produto_geral,
     grafico_bandeiras_estado,
+    grafico_razao_etanol_gasolina,
     linha_precos_por_produto,
 )
 
@@ -319,6 +392,7 @@ boxplot_produto_estado(df, "DIESEL S10", "outputs")
 boxplot_produto_geral(df, "DIESEL S10", "outputs")
 grafico_bandeiras_estado(bandeiras_por_estado(df), "outputs")
 linha_precos_por_produto(df, "outputs")
+grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, 2025), 2025, "outputs")
 ```
 
 ## Notebooks
@@ -338,11 +412,8 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 ## Possíveis próximos passos
 
 - Adicionar à pasta `sql/` os scripts de criação do banco e de carga dos CSVs;
-- separar configuração e credenciais do código;
 - criar pipeline ETL/ELT;
-- criar análises de variação percentual dos preços;
-- analisar médias por região;
-- identificar estados com maior amplitude de preços;
+- corrigir os preços pela inflação (IPCA) para analisar a variação real;
 - criar um dashboard em Power BI ou Streamlit;
 - automatizar a atualização dos dados.
 

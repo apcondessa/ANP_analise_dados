@@ -36,9 +36,31 @@ def test_precos_medios_mensais(base):
 def test_gerar_todos_graficos(base, tmp_path):
     gerar_todos_graficos(base, tmp_path)
     gerados = {arquivo.name for arquivo in tmp_path.glob("*.png")}
-    assert len(gerados) == 2 * len(PRODUTOS) + 2
+    # 2 boxplots por produto + bandeiras + evolução + razão etanol/gasolina + regiões
+    # (a base de exemplo tem um único ano, então a variação anual é pulada)
+    assert len(gerados) == 2 * len(PRODUTOS) + 4
     assert "gnv_valor_venda_por_estado.png" in gerados
     assert "grafico_produto_data_coleta_valor_venda.png" in gerados
+    assert "razao_etanol_gasolina_por_estado.png" in gerados
+    assert "preco_medio_por_regiao.png" in gerados
+    assert "variacao_anual_precos.png" not in gerados
+
+
+def test_grafico_variacao_anual(tmp_path):
+    import pandas as pd
+
+    from src.analysis import variacao_anual
+    from src.visualization import grafico_variacao_anual
+
+    dados = pd.DataFrame(
+        {"produto": ["GNV", "GNV", "ETANOL", "ETANOL"], "ano": [2024, 2025, 2024, 2025],
+         "valor_venda": [4.0, 5.0, 4.0, 3.0]}
+    )
+    fig, ax = grafico_variacao_anual(variacao_anual(dados))
+    textos = sorted(texto.get_text() for texto in ax.texts)
+    assert textos == ["+25.0", "-25.0"]
+    with pytest.raises(ValueError, match="dois anos"):
+        grafico_variacao_anual(variacao_anual(dados[dados["ano"] == 2025]))
 
 
 def test_barras_de_bandeiras_alinhadas_aos_rotulos(base):

@@ -211,11 +211,128 @@ def grafico_bandeiras_estado(
     return fig, ax
 
 
+def grafico_razao_etanol_gasolina(
+    df_razao: pd.DataFrame, ano: int | None = None, output_dir: str | Path | None = None
+):
+    """Barras com a razão etanol/gasolina por estado e a linha de 70%.
+
+    ``df_razao`` é o resultado de ``analysis.razao_etanol_gasolina``.
+    """
+    from src.analysis import LIMITE_ETANOL_GASOLINA
+
+    dados = df_razao.sort_values("razao", ascending=False)
+    cores = [
+        CORES["ETANOL"] if compensa else "#b0b0b0" for compensa in dados["compensa_etanol"]
+    ]
+    with sns.axes_style(ESTILO):
+        fig, ax = plt.subplots(figsize=(9, 9))
+        ax.barh(dados["estado"].astype(str), dados["razao"] * 100, color=cores)
+        ax.axvline(LIMITE_ETANOL_GASOLINA * 100, color="#d62728", linestyle="--", linewidth=1.5)
+        ax.text(
+            LIMITE_ETANOL_GASOLINA * 100, len(dados) - 0.4, " 70%: limite da regra prática",
+            color="#d62728", va="bottom", fontsize=10,
+        )
+        for posicao, razao in enumerate(dados["razao"]):
+            ax.text(
+                razao * 100 + 0.3, posicao, f"{razao:.0%}", va="center", fontsize=9,
+                bbox={"facecolor": "white", "edgecolor": "none", "pad": 1, "alpha": 0.8},
+            )
+        periodo = f" em {ano}" if ano else ""
+        ax.set_title(
+            f"Preço do etanol como % do preço da gasolina comum{periodo}",
+            loc="left", fontsize=14,
+        )
+        ax.set_xlabel("Etanol / Gasolina (%) — em verde, estados onde o etanol compensa")
+        ax.set_ylabel("Estado")
+        ax.set_xlim(50, max(dados["razao"].max() * 100 + 5, 80))
+        ax.set_ylim(-0.6, len(dados) + 0.4)
+    _finalizar(fig, output_dir, "razao_etanol_gasolina_por_estado.png")
+    return fig, ax
+
+
+def grafico_variacao_anual(df_variacao: pd.DataFrame, output_dir: str | Path | None = None):
+    """Mapa de calor da variação (%) do preço médio de cada produto em relação ao ano anterior.
+
+    ``df_variacao`` é o resultado de ``analysis.variacao_anual``. É preciso ter
+    pelo menos dois anos na base.
+    """
+    if df_variacao["variacao_pct"].isna().all():
+        raise ValueError("A variação anual precisa de pelo menos dois anos de dados.")
+    tabela = (
+        df_variacao.dropna(subset=["variacao_pct"])
+        .pivot(index="produto", columns="ano", values="variacao_pct")
+        .reindex([p for p in PRODUTOS if p in set(df_variacao["produto"])])
+    )
+    tabela.index = [_rotulo(p) for p in tabela.index]
+    limite = max(abs(tabela.min().min()), abs(tabela.max().max()))
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    sns.heatmap(
+        tabela, annot=True, fmt="+.1f", cmap="RdBu_r", center=0, vmin=-limite, vmax=limite,
+        linewidths=1, cbar_kws={"label": "Variação (%)"}, ax=ax,
+    )
+    ax.set_title("Variação do preço médio em relação ao ano anterior (%)", loc="left")
+    ax.set_xlabel("Ano")
+    ax.set_ylabel("")
+    _finalizar(fig, output_dir, "variacao_anual_precos.png")
+    return fig, ax
+
+
+def grafico_media_por_regiao(
+    df_regiao: pd.DataFrame, ano: int | None = None, output_dir: str | Path | None = None
+):
+    """Barras agrupadas com o preço médio dos combustíveis líquidos por região.
+
+    ``df_regiao`` é o resultado de ``analysis.media_por_regiao``. O GNV fica de
+    fora por ter outra unidade (R$/m³).
+    """
+    nomes_regioes = {
+        "N": "Norte", "NE": "Nordeste", "CO": "Centro-Oeste", "SE": "Sudeste", "S": "Sul",
+    }
+    produtos = [p for p in PRODUTOS if p in df_regiao.columns and _unidade(p) == UNIDADE_PADRAO]
+    dados = (
+        df_regiao[produtos]
+        .reset_index()
+        .melt(id_vars="regiao", var_name="produto", value_name="media")
+    )
+    dados["regiao"] = dados["regiao"].astype(str).map(lambda r: nomes_regioes.get(r, r))
+    dados["produto"] = dados["produto"].map(_rotulo)
+    ordem_regioes = [r for r in nomes_regioes.values() if r in set(dados["regiao"])]
+    with sns.axes_style(ESTILO):
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.barplot(
+            data=dados, x="regiao", y="media", hue="produto", order=ordem_regioes,
+            hue_order=[_rotulo(p) for p in produtos],
+            palette={_rotulo(p): _cor(p) for p in produtos}, ax=ax,
+        )
+        for barras in ax.containers:
+            ax.bar_label(barras, fmt="%.2f", fontsize=8, padding=2)
+        periodo = f" em {ano}" if ano else ""
+        ax.set_title(
+            f"Preço médio dos combustíveis líquidos por região{periodo} ({UNIDADE_PADRAO})",
+            loc="left", fontsize=14,
+        )
+        ax.set_xlabel("Região")
+        ax.set_ylabel(f"Preço médio ({UNIDADE_PADRAO})")
+        ax.set_ylim(0, dados["media"].max() * 1.12)
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), frameon=False, title=None)
+    _finalizar(fig, output_dir, "preco_medio_por_regiao.png")
+    return fig, ax
+
+
 def gerar_todos_graficos(
     df: pd.DataFrame, output_dir: str | Path, incluir_linha: bool = True
 ) -> None:
-    """Gera todos os gráficos do projeto na pasta ``output_dir``."""
-    from src.analysis import bandeiras_por_estado
+    """Gera todos os gráficos do projeto na pasta ``output_dir``.
+
+    Os gráficos de razão etanol/gasolina e de preço por região usam o ano
+    mais recente da base.
+    """
+    from src.analysis import (
+        bandeiras_por_estado,
+        media_por_regiao,
+        razao_etanol_gasolina,
+        variacao_anual,
+    )
 
     for produto in PRODUTOS:
         print(f"  gráficos de {_rotulo(produto)}...")
@@ -226,3 +343,13 @@ def gerar_todos_graficos(
     if incluir_linha:
         print("  evolução de preços...")
         linha_precos_por_produto(df, output_dir)
+    ultimo_ano = int(df["ano"].max())
+    print(f"  razão etanol/gasolina e preço por região ({ultimo_ano})...")
+    grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, ultimo_ano), ultimo_ano, output_dir)
+    grafico_media_por_regiao(media_por_regiao(df, ultimo_ano), ultimo_ano, output_dir)
+    variacao = variacao_anual(df)
+    if variacao["variacao_pct"].notna().any():
+        print("  variação anual...")
+        grafico_variacao_anual(variacao, output_dir)
+    else:
+        print("  variação anual: pulada (a base tem um único ano)")
