@@ -9,6 +9,28 @@ Projeto de **Data Analytics** desenvolvido para explorar dados de preços de com
 
 A base utilizada é composta por arquivos disponibilizados pela **Agência Nacional do Petróleo, Gás Natural e Biocombustíveis (ANP)**. O projeto organiza os dados brutos, prepara uma base para análise e gera indicadores e visualizações sobre preços, produtos, estados e bandeiras.
 
+## 🇬🇧 English summary
+
+**Fuel price analysis in Brazil (2021–2025)** using open data from ANP, the Brazilian National Agency of Petroleum, Natural Gas and Biofuels: 4.3 million retail prices collected at gas stations across all 27 states.
+
+**What the project does**
+
+- Downloads the ANP files automatically, then cleans and standardizes them (encodings, decimal commas, units, invalid rows and duplicates).
+- Runs the same pipeline in **Python (pandas)** and in **SQL (PostgreSQL)**; automated tests check that both produce identical results.
+- Analyzes prices by fuel, state, region and year, and publishes an **interactive Streamlit dashboard**: <https://anp-combustiveis.streamlit.app/>
+- Includes 58 automated tests (pytest) and continuous integration with GitHub Actions.
+
+**Key findings**
+
+1. Prices peaked in mid-2022 and then dropped sharply: regular gasoline averaged R$ 7.29/liter in May 2022 and R$ 4.86 in October.
+2. Diesel rose the most: +31% from 2021 to 2025, versus +6% for gasoline and −4.5% for ethanol (yearly averages).
+3. Ethanol became more competitive (from 79% to 69% of the gasoline price between 2021 and 2024), but in 2025 it was worth choosing (below 70% of the gasoline price) in only 4 states: MS, MT, SP and PR.
+4. The North is the most expensive region: in 2025, gasoline cost 10% more and ethanol 20% more than in the Southeast.
+
+**Tech stack:** Python, pandas, PyArrow/Parquet, Matplotlib, Seaborn, Altair, Streamlit, PostgreSQL/SQL, pytest, Ruff, GitHub Actions.
+
+*The rest of this README is in Portuguese.*
+
 ## Objetivos
 
 - Organizar e tratar os dados de preços de combustíveis.
@@ -121,6 +143,7 @@ ANP_analise_dados/
 ├── .github/workflows/ci.yml         # Testes automáticos no GitHub (CI)
 ├── .env.example                 # Modelo das variáveis do banco (copie para .env)
 ├── .gitignore
+├── LICENSE                          # Licença MIT
 ├── pyproject.toml                   # Configuração do pytest e do Ruff
 └── README.md
 ```
@@ -502,3 +525,9 @@ Este projeto demonstra competências em:
 **Python | Pandas | SQL (PostgreSQL: COPY, CTEs, funções de janela, funções PL/pgSQL) | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | Jupyter Notebook | Dashboard interativo (Streamlit) | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
 
 O objetivo da organização em `src/` é separar a lógica reutilizável dos notebooks, tornando o projeto mais próximo de uma estrutura utilizada em projetos profissionais de dados.
+
+## Licença
+
+O código deste projeto está sob a [licença MIT](LICENSE): pode ser usado, copiado e modificado livremente, desde que o aviso de copyright seja mantido.
+
+Os dados de preços são da **ANP** e foram publicados por ela como dados abertos. Eles não fazem parte da licença MIT: ao usá-los, cite a fonte (ANP, *Série histórica de preços de combustíveis*).
