@@ -20,6 +20,7 @@ from src.analysis import (  # noqa: E402
     razao_etanol_gasolina,
     variacao_anual,
 )
+from src.dashboard_dados import PASTA_DASHBOARD, gerar_dados_dashboard  # noqa: E402
 from src.data_processing import carregar_csvs, salvar_parquet  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
@@ -38,6 +39,8 @@ def main() -> None:
     df = carregar_csvs(RAW)
     salvar_parquet(df, PROCESSED)
     print(f"Base tratada salva em {PROCESSED}")
+    gerar_dados_dashboard(df)
+    print(f"Dados do dashboard salvos em {PASTA_DASHBOARD}")
 
     print(f"\nBase tratada: {df.shape[0]:,} linhas x {df.shape[1]} colunas")
     print("\nEstatística por produto e ano:")
