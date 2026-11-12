@@ -3,7 +3,10 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 # Aviso interno do seaborn 0.13 com o Matplotlib 3.11 (não vem do código do projeto)
-filterwarnings = ["ignore:vert. bool was deprecated:matplotlib.MatplotlibDeprecationWarning"]
+filterwarnings = [
+    "ignore:vert. bool was deprecated:matplotlib.MatplotlibDeprecationWarning",
+    "ignore:The set_bad function will be deprecated:PendingDeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100

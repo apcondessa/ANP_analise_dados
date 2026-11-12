@@ -13,7 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:  # permite rodar `python src/main.py`
     sys.path.insert(0, str(ROOT))
 
-from src.analysis import bandeiras_por_estado, estatistica_por_produto  # noqa: E402
+from src.analysis import (  # noqa: E402
+    bandeiras_por_estado,
+    estatistica_por_produto,
+    media_por_regiao,
+    razao_etanol_gasolina,
+    variacao_anual,
+)
 from src.data_processing import carregar_csvs, salvar_parquet  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
@@ -38,6 +44,18 @@ def main() -> None:
     print(estatistica_por_produto(df).to_string(index=False))
     print("\nQuantidade de bandeiras por estado:")
     print(bandeiras_por_estado(df).to_string(index=False))
+
+    ultimo_ano = int(df["ano"].max())
+    print("\nPreço médio por produto e ano, com variação (%) em relação ao ano anterior:")
+    print(variacao_anual(df).to_string(index=False))
+    print(f"\nPreço médio por região em {ultimo_ano} (GNV em R$/m³; demais em R$/litro):")
+    print(media_por_regiao(df, ultimo_ano).to_string())
+    razao = razao_etanol_gasolina(df, ultimo_ano)
+    print(
+        f"\nEtanol como fração do preço da gasolina em {ultimo_ano} "
+        f"(compensa abaixo de 0,70; {int(razao['compensa_etanol'].sum())} estados):"
+    )
+    print(razao.to_string(index=False))
 
     if args.graficos:
         import matplotlib
