@@ -1,0 +1,19 @@
+# Configuração das ferramentas de qualidade (testes e verificação de estilo).
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Aviso interno do seaborn 0.13 com o Matplotlib 3.11 (não vem do código do projeto)
+filterwarnings = ["ignore:vert. bool was deprecated:matplotlib.MatplotlibDeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+# E/W: estilo (PEP 8) | F: erros (variáveis não usadas etc.) | I: ordem dos imports
+# B: armadilhas comuns | UP: sintaxe moderna
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E501"]  # linhas longas: reproduzem o formato do CSV da ANP

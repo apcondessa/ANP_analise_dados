@@ -97,7 +97,7 @@ def boxplot_produto_estado(
     coletas têm caixas pouco confiáveis.
     """
     dados = _filtrar_produto(df, produto)
-    por_estado = dados.groupby("estado")["valor_venda"]
+    por_estado = dados.groupby("estado", observed=True)["valor_venda"]
     ordem = por_estado.median().sort_values().index
     coletas = por_estado.size()
     with sns.axes_style(ESTILO):
@@ -139,7 +139,9 @@ def boxplot_produto_geral(
 def precos_medios_mensais(df: pd.DataFrame) -> pd.DataFrame:
     """Preço médio de venda por produto e mês (uma linha por produto/mês)."""
     return (
-        df.groupby(["produto", pd.Grouper(key="data_coleta", freq="MS")])["valor_venda"]
+        df.groupby(["produto", pd.Grouper(key="data_coleta", freq="MS")], observed=True)[
+            "valor_venda"
+        ]
         .mean()
         .reset_index()
     )
@@ -162,7 +164,7 @@ def linha_precos_por_produto(df: pd.DataFrame, output_dir: str | Path | None = N
         fig, eixos = plt.subplots(
             2, 1, figsize=(12, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1.3]}
         )
-        for ax, (dados, titulo) in zip(eixos, paineis):
+        for ax, (dados, titulo) in zip(eixos, paineis, strict=True):
             for produto in [p for p in PRODUTOS if p in set(dados["produto"])]:
                 serie = dados[dados["produto"] == produto]
                 ax.plot(
@@ -186,11 +188,15 @@ def grafico_bandeiras_estado(
     df_bandeiras: pd.DataFrame, output_dir: str | Path | None = None
 ):
     """Gráfico da quantidade de bandeiras distintas por estado."""
+    # Ordem explícita (a do DataFrame): sem ela, uma coluna "category" seria
+    # desenhada em ordem alfabética e os rótulos ficariam fora do lugar.
+    ordem = df_bandeiras["estado"].astype(str).tolist()
+    dados = df_bandeiras.assign(estado=df_bandeiras["estado"].astype(str))
     with sns.axes_style(ESTILO):
         fig, ax = plt.subplots(figsize=(14, 6))
         sns.barplot(
-            x="estado", y="quantidade_bandeiras", data=df_bandeiras,
-            hue="estado", palette="tab20", legend=False, ax=ax,
+            x="estado", y="quantidade_bandeiras", data=dados, order=ordem,
+            hue="estado", hue_order=ordem, palette="tab20", legend=False, ax=ax,
         )
         ax.set_title("Quantidade de Bandeiras por Estado")
         ax.set_xlabel("Estado")

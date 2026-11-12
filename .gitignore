@@ -4,13 +4,16 @@ venv/
 
 # Python
 __pycache__/
+.pytest_cache/
+.ruff_cache/
 *.pyc
 
 # Jupyter
 .ipynb_checkpoints/
 
 # Dados: grandes demais para o GitHub (limite de 100 MB por arquivo).
-# Os CSVs da ANP são baixados pelo usuário; o .pkl é gerado por `python src/main.py`.
+# Os CSVs da ANP são baixados com `python src/download.py`; a base tratada (.parquet)
+# é gerada por `python src/main.py`.
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep

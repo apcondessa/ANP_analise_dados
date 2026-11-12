@@ -1,5 +1,7 @@
 # Projeto ANP — Análise de Preços de Combustíveis
 
+[![CI](https://github.com/apcondessa/ANP_analise_dados/actions/workflows/ci.yml/badge.svg)](https://github.com/apcondessa/ANP_analise_dados/actions/workflows/ci.yml)
+
 Projeto de **Data Analytics** desenvolvido para explorar dados de preços de combustíveis comercializados no Brasil, com foco em análise exploratória, estatística descritiva e visualização.
 
 A base utilizada é composta por arquivos disponibilizados pela **Agência Nacional do Petróleo, Gás Natural e Biocombustíveis (ANP)**. O projeto organiza os dados brutos, prepara uma base para análise e gera indicadores e visualizações sobre preços, produtos, estados e bandeiras.
@@ -36,8 +38,11 @@ A base utilizada é composta por arquivos disponibilizados pela **Agência Nacio
 - Pandas
 - Matplotlib
 - Seaborn
+- PyArrow (formato Parquet)
 - PostgreSQL (apenas no notebook `Geracao_insights.ipynb`)
 - Jupyter Notebook
+- pytest e Ruff (testes e verificação de estilo)
+- GitHub Actions (integração contínua)
 - Git/GitHub
 
 ## Estrutura do projeto
@@ -48,7 +53,7 @@ ANP_analise_dados/
 ├── data/
 │   ├── raw/                         # CSVs originais da ANP (não versionados)
 │   └── processed/                   # Base tratada (gerada pelo src, não versionada)
-│       └── dados_anp_tratados.pkl
+│       └── dados_anp_tratados.parquet
 │
 ├── notebooks/
 │   ├── Geracao_insights.ipynb       # Análise exploratória e indicadores
@@ -62,25 +67,41 @@ ANP_analise_dados/
 │   ├── __init__.py
 │   ├── analysis.py                  # Estatísticas descritivas
 │   ├── data_processing.py           # Leitura e tratamento dos CSVs
+│   ├── download.py                  # Baixa os CSVs do site da ANP
 │   ├── main.py                      # Executa o fluxo completo
 │   └── visualization.py             # Gráficos
 │
-├── requirements/
-│   └── requirements.txt
+├── tests/                           # Testes automatizados (pytest)
 │
+├── requirements/
+│   ├── requirements.txt             # Dependências do projeto
+│   └── requirements-dev.txt         # + ferramentas de teste e estilo
+│
+├── .github/workflows/ci.yml         # Testes automáticos no GitHub (CI)
 ├── .env.example                 # Modelo das variáveis do banco (copie para .env)
 ├── .gitignore
+├── pyproject.toml                   # Configuração do pytest e do Ruff
 └── README.md
 ```
 
 ## Requisitos
 
 - **Python 3.11 ou superior** (o projeto foi desenvolvido com Python 3.14).
-- Cerca de **2,5 GB de memória RAM livre** (pico medido: 2,0 GB) e **1 GB de disco** para os dados brutos.
+- Cerca de **2 GB de memória RAM livre** (pico medido: 1,7 GB) e **1 GB de disco** para os dados brutos.
 
 ## Obtendo os dados
 
-Os CSVs da ANP **não estão neste repositório** (somam cerca de 750 MB). Para reproduzir o projeto:
+Os CSVs da ANP **não estão neste repositório** (somam cerca de 750 MB).
+
+**Forma automática (recomendada):** na raiz do projeto, com o ambiente virtual ativo, execute:
+
+```bash
+python src/download.py
+```
+
+O script baixa os 10 semestres de 2021 a 2025, extrai os arquivos `.zip` e salva os CSVs em `data/raw/` (`ca-2021-01.csv`, `ca-2021-02.csv`, ...). Arquivos já baixados são pulados e, se a conexão cair no meio, o download continua de onde parou. Leva alguns minutos. Para outro período: `python src/download.py --inicio 2023 --fim 2024`.
+
+**Forma manual:**
 
 1. Acesse a série histórica de preços de combustíveis da ANP:
    <https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/serie-historica-de-precos-de-combustiveis>
@@ -129,9 +150,13 @@ source .venv/bin/activate
 pip install -r requirements/requirements.txt
 ```
 
-### 4. Colocar os dados
+### 4. Baixar os dados
 
-Siga a seção [Obtendo os dados](#obtendo-os-dados) e deixe os CSVs em `data/raw/`.
+```bash
+python src/download.py
+```
+
+Ou siga a forma manual da seção [Obtendo os dados](#obtendo-os-dados).
 
 ### 5. Executar
 
@@ -145,7 +170,7 @@ O script irá:
 
 1. ler os CSVs presentes em `data/raw/`;
 2. tratar os dados;
-3. salvar a base em `data/processed/dados_anp_tratados.pkl`;
+3. salvar a base em `data/processed/dados_anp_tratados.parquet`;
 4. apresentar estatísticas por produto e ano;
 5. apresentar a quantidade de bandeiras por estado.
 
@@ -155,7 +180,7 @@ Para **também gerar todos os gráficos** em `outputs/`:
 python src/main.py --graficos
 ```
 
-O fluxo completo, com os gráficos, leva cerca de 1 minuto. Ele gera 14 imagens PNG:
+O fluxo completo, com os gráficos, leva menos de 1 minuto. Ele gera 14 imagens PNG:
 
 - `<produto>_valor_venda.png`: boxplot geral de cada um dos 6 produtos;
 - `<produto>_valor_venda_por_estado.png`: boxplot por estado de cada produto;
@@ -176,13 +201,15 @@ As 9.114 linhas descartadas são linhas totalmente vazias no final de um dos arq
 ## Fluxo de dados
 
 ```text
-Dados brutos da ANP (CSV)
+Site da ANP
         ↓
-data/raw/
+src/download.py          (download e extração dos .zip)
+        ↓
+data/raw/                (CSVs brutos)
         ↓
 src/data_processing.py   (leitura, tratamento e padronização)
         ↓
-data/processed/dados_anp_tratados.pkl
+data/processed/dados_anp_tratados.parquet
         ↓
 src/analysis.py          (estatísticas descritivas)
         ↓
@@ -206,18 +233,34 @@ O módulo `src/data_processing.py` concentra as etapas de preparação da base:
 - remoção de registros duplicados;
 - padronização da unidade de medida (o GNV é vendido em R$/m³; os demais combustíveis, em R$/litro);
 - criação das variáveis `ano` e `mes`;
-- armazenamento da base tratada em Pickle.
+- conversão das colunas de texto repetitivo para o tipo `category` (a base ocupa cerca de 120 MB na memória, contra 1,7 GB antes);
+- armazenamento da base tratada em **Parquet** (cerca de 23 MB em disco e carregada em menos de 1 segundo; o Pickle anterior tinha 290 MB).
 
 Exemplo de uso no Python (a partir da raiz do projeto):
 
 ```python
-from src.data_processing import carregar_csvs, salvar_pickle
+from src.data_processing import carregar_csvs, carregar_parquet, salvar_parquet
 
 df = carregar_csvs("data/raw")
-salvar_pickle(df, "data/processed/dados_anp_tratados.pkl")
+salvar_parquet(df, "data/processed/dados_anp_tratados.parquet")
+
+# nas próximas vezes, basta carregar a base já tratada:
+df = carregar_parquet("data/processed/dados_anp_tratados.parquet")
 ```
 
 Colunas da base tratada: `data_coleta`, `regiao`, `estado`, `municipio`, `cnpj` (do posto), `bandeira`, `produto`, `valor_venda`, `unidade`, `ano`, `mes`.
+
+## Testes
+
+Os testes ficam em `tests/` e usam CSVs pequenos de exemplo, criados no próprio teste (não precisam dos dados da ANP nem de internet). Eles conferem, entre outros pontos: leitura em UTF-8 com BOM e em latin1, conversão de valores com vírgula e de datas `dd/mm/aaaa`, descarte de linhas vazias, remoção de duplicatas, padronização da unidade do GNV, os cálculos das análises, a geração dos 14 gráficos e o download (incluindo a retomada após uma queda de conexão).
+
+```bash
+pip install -r requirements/requirements-dev.txt
+pytest            # roda os testes
+ruff check .      # verifica o estilo do código
+```
+
+A cada push e pull request, o GitHub Actions roda esses mesmos comandos em Python 3.11 e 3.13 (arquivo `.github/workflows/ci.yml`). O selo **CI** no topo deste README mostra se a última verificação passou.
 
 ## Análises realizadas
 
@@ -286,19 +329,17 @@ Os notebooks documentam a exploração original. **O fluxo reproduzível está n
 
 Exploração dos dados e geração de indicadores: dimensão da base, tipos das variáveis, valores ausentes, produtos disponíveis, anos e meses, estatística descritiva, preços por produto e por estado e quantidade de bandeiras.
 
-Este notebook lê os dados de um banco **PostgreSQL 17** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. O banco não faz parte do repositório e os scripts de criação/carga ainda não foram adicionados à pasta `sql/`. Para executá-lo é preciso montar esse banco e definir as variáveis de ambiente `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` (veja o modelo em `.env.example`). A senha (`DB_PASSWORD`) é obrigatória e nunca fica escrita no notebook. Execute o notebook a partir da pasta `notebooks/`: a base tratada é salva em `data/processed/`. **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
+Este notebook lê os dados de um banco **PostgreSQL 17** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. O banco não faz parte do repositório e os scripts de criação/carga ainda não foram adicionados à pasta `sql/`. Para executá-lo é preciso montar esse banco e definir as variáveis de ambiente `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` (veja o modelo em `.env.example`). A senha (`DB_PASSWORD`) é obrigatória e nunca fica escrita no notebook. Execute o notebook a partir da pasta `notebooks/`: a base tratada é salva em `data/processed/dados_anp_tratados.parquet`. **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
 
 ### `Tecnicas_visualizacao.ipynb`
 
-Técnicas de visualização: séries temporais, boxplots, comparações por estado, gráficos de barras e análise da quantidade de bandeiras. Lê o arquivo `data/processed/dados_anp_tratados.pkl`, que é gerado por `python src/main.py`. Para executá-lo, é necessário instalar o Jupyter (`pip install jupyter`) e abrir o notebook a partir da pasta `notebooks/` (os caminhos são relativos a ela).
+Técnicas de visualização: séries temporais, boxplots, comparações por estado, gráficos de barras e análise da quantidade de bandeiras. Lê o arquivo `data/processed/dados_anp_tratados.parquet`, que é gerado por `python src/main.py`. Para executá-lo, é necessário instalar o Jupyter (`pip install jupyter`) e abrir o notebook a partir da pasta `notebooks/` (os caminhos são relativos a ela).
 
 ## Possíveis próximos passos
 
 - Adicionar à pasta `sql/` os scripts de criação do banco e de carga dos CSVs;
-- criar uma camada de ingestão automatizada dos arquivos da ANP;
 - separar configuração e credenciais do código;
 - criar pipeline ETL/ELT;
-- adicionar testes de qualidade dos dados;
 - criar análises de variação percentual dos preços;
 - analisar médias por região;
 - identificar estados com maior amplitude de preços;
@@ -309,6 +350,6 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 
 Este projeto demonstra competências em:
 
-**Python | Pandas | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | PostgreSQL | Jupyter Notebook | Organização de código**
+**Python | Pandas | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | PostgreSQL | Jupyter Notebook | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
 
 O objetivo da organização em `src/` é separar a lógica reutilizável dos notebooks, tornando o projeto mais próximo de uma estrutura utilizada em projetos profissionais de dados.
