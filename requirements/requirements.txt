@@ -1,4 +1,6 @@
 matplotlib==3.11.2
 pandas==3.0.6
+pyarrow==26.0.1
 seaborn==0.13.2
+# apenas para o notebook Geracao_insights.ipynb (PostgreSQL)
 psycopg2-binary==2.9.13

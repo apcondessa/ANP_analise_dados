@@ -5,7 +5,7 @@ import pandas as pd
 def estatistica_por_produto(df: pd.DataFrame) -> pd.DataFrame:
     """Calcula mínimo, máximo e média do preço por produto e ano."""
     return (
-        df.groupby(["produto", "ano"])["valor_venda"]
+        df.groupby(["produto", "ano"], observed=True)["valor_venda"]
         .agg(min="min", max="max", media="mean")
         .round(2)
         .reset_index()
@@ -15,7 +15,7 @@ def estatistica_por_produto(df: pd.DataFrame) -> pd.DataFrame:
 def estatistica_por_estado(df: pd.DataFrame) -> pd.DataFrame:
     """Calcula estatísticas de preço por produto, ano e estado."""
     return (
-        df.groupby(["produto", "ano", "estado"])["valor_venda"]
+        df.groupby(["produto", "ano", "estado"], observed=True)["valor_venda"]
         .agg(min="min", max="max", media="mean")
         .round(2)
         .reset_index()
@@ -26,10 +26,11 @@ def bandeiras_por_estado(df: pd.DataFrame) -> pd.DataFrame:
     """Conta quantas bandeiras distintas aparecem em cada estado."""
     return (
         df.dropna(subset=["bandeira"])
-        .groupby("estado")["bandeira"]
+        .groupby("estado", observed=True)["bandeira"]
         .nunique()
         .reset_index(name="quantidade_bandeiras")
-        .sort_values("quantidade_bandeiras", ascending=False)
+        .astype({"estado": str})  # texto simples, sem a ordem alfabética da categoria
+        .sort_values("quantidade_bandeiras", ascending=False, kind="stable")
         .reset_index(drop=True)
     )
 

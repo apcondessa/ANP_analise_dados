@@ -14,10 +14,10 @@ if str(ROOT) not in sys.path:  # permite rodar `python src/main.py`
     sys.path.insert(0, str(ROOT))
 
 from src.analysis import bandeiras_por_estado, estatistica_por_produto  # noqa: E402
-from src.data_processing import carregar_csvs, salvar_pickle  # noqa: E402
+from src.data_processing import carregar_csvs, salvar_parquet  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
-PROCESSED = ROOT / "data" / "processed" / "dados_anp_tratados.pkl"
+PROCESSED = ROOT / "data" / "processed" / "dados_anp_tratados.parquet"
 OUTPUTS = ROOT / "outputs"
 
 
@@ -30,7 +30,7 @@ def main() -> None:
 
     print(f"Lendo CSVs de {RAW} ...")
     df = carregar_csvs(RAW)
-    salvar_pickle(df, PROCESSED)
+    salvar_parquet(df, PROCESSED)
     print(f"Base tratada salva em {PROCESSED}")
 
     print(f"\nBase tratada: {df.shape[0]:,} linhas x {df.shape[1]} colunas")

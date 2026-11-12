@@ -20,6 +20,10 @@ COLUNAS_ANALISE = [
     "bandeira", "produto", "valor_venda", "unidade",
 ]
 
+# Colunas de texto com poucos valores distintos: guardadas como "category",
+# o que reduz bastante a memória (cada texto é armazenado uma única vez).
+COLUNAS_CATEGORICAS = ["regiao", "estado", "municipio", "cnpj", "bandeira", "produto", "unidade"]
+
 # Marca de ordem de bytes (BOM) em UTF-8, ou como aparece quando lida como latin1
 _BOM = ("\ufeff", "ï»¿")
 
@@ -69,17 +73,24 @@ def preparar_dados(df: pd.DataFrame) -> pd.DataFrame:
         df["valor_venda"].astype(str).str.replace(",", ".", regex=False)
     )
     df["valor_venda"] = pd.to_numeric(df["valor_venda"], errors="coerce")
-    df["produto"] = df["produto"].astype("string").str.strip().str.upper()
-    df["estado"] = df["estado"].astype("string").str.strip().str.upper()
-    df["bandeira"] = df["bandeira"].astype("string").str.strip()
+    df["produto"] = df["produto"].str.strip().str.upper()
+    df["estado"] = df["estado"].str.strip().str.upper()
+    df["bandeira"] = df["bandeira"].str.strip()
     # A ANP grafa a unidade do GNV de duas formas ("R$ / m3" e "R$ / m³")
-    df["unidade"] = (
-        df["unidade"].astype("string").str.strip().str.replace("m3", "m³", regex=False)
-    )
+    df["unidade"] = df["unidade"].str.strip().str.replace("m3", "m³", regex=False)
     df = df.dropna(subset=["data_coleta", "produto", "valor_venda"])
-    df["ano"] = df["data_coleta"].dt.year
-    df["mes"] = df["data_coleta"].dt.month
+    df["ano"] = df["data_coleta"].dt.year.astype("int16")
+    df["mes"] = df["data_coleta"].dt.month.astype("int8")
     return df.reset_index(drop=True)
+
+
+def otimizar_tipos(df: pd.DataFrame) -> pd.DataFrame:
+    """Converte as colunas de texto repetitivo para o tipo ``category``."""
+    df = df.copy()
+    for coluna in COLUNAS_CATEGORICAS:
+        if coluna in df.columns:
+            df[coluna] = df[coluna].astype("category")
+    return df
 
 
 def remover_duplicatas(df: pd.DataFrame) -> pd.DataFrame:
@@ -88,7 +99,11 @@ def remover_duplicatas(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def carregar_csvs(pasta_raw: str | Path, verbose: bool = True) -> pd.DataFrame:
-    """Carrega todos os CSVs da pasta raw e devolve uma base tratada."""
+    """Carrega todos os CSVs da pasta raw e devolve uma base tratada.
+
+    Cada arquivo é tratado logo após a leitura (antes de juntar todos), para
+    que os textos brutos de um arquivo sejam liberados antes de ler o próximo.
+    """
     pasta = Path(pasta_raw)
     arquivos = sorted(pasta.glob("*.csv"))
     if not arquivos:
@@ -97,34 +112,51 @@ def carregar_csvs(pasta_raw: str | Path, verbose: bool = True) -> pd.DataFrame:
             "Baixe os arquivos da ANP e coloque-os nessa pasta (veja o README)."
         )
     dados = []
+    total_bruto = 0
     for arquivo in arquivos:
-        parcial = _ler_csv(arquivo)
+        bruto = _ler_csv(arquivo)
+        total_bruto += len(bruto)
         if verbose:
-            print(f"  lido: {arquivo.name} ({len(parcial):,} linhas)")
-        dados.append(parcial)
-    bruto = pd.concat(dados, ignore_index=True)
+            print(f"  lido: {arquivo.name} ({len(bruto):,} linhas)")
+        dados.append(preparar_dados(bruto))
+        del bruto
+    tratado = otimizar_tipos(pd.concat(dados, ignore_index=True))
     del dados
-    total_bruto = len(bruto)
-    tratado = preparar_dados(bruto)
-    del bruto
     total_validas = len(tratado)
     tratado = remover_duplicatas(tratado)
     if verbose:
         print(
             f"  {total_bruto:,} linhas lidas em {len(arquivos)} arquivos | "
-            f"{total_bruto - total_validas:,} descartadas (linhas vazias ou sem data/produto/valor) | "
+            f"{total_bruto - total_validas:,} descartadas "
+            "(linhas vazias ou sem data/produto/valor) | "
             f"{total_validas - len(tratado):,} duplicadas removidas"
         )
     return tratado
 
 
+def salvar_parquet(df: pd.DataFrame, caminho: str | Path) -> None:
+    """Salva a base tratada em Parquet (formato colunar, compacto e portável)."""
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(caminho, index=False)
+
+
+def carregar_parquet(caminho: str | Path) -> pd.DataFrame:
+    """Carrega uma base tratada previamente salva em Parquet."""
+    return pd.read_parquet(caminho)
+
+
 def salvar_pickle(df: pd.DataFrame, caminho: str | Path) -> None:
-    """Salva a base tratada em formato Pickle."""
+    """Salva a base tratada em formato Pickle (formato antigo; prefira Parquet)."""
     caminho = Path(caminho)
     caminho.parent.mkdir(parents=True, exist_ok=True)
     df.to_pickle(caminho)
 
 
 def carregar_pickle(caminho: str | Path) -> pd.DataFrame:
-    """Carrega uma base tratada previamente salva em Pickle."""
+    """Carrega uma base em Pickle (formato antigo; prefira Parquet).
+
+    Atenção: só abra arquivos Pickle de origem confiável, pois carregá-los
+    pode executar código.
+    """
     return pd.read_pickle(caminho)
