@@ -65,7 +65,7 @@ Base: 4,3 milhões de preços coletados pela ANP em postos de todo o país, de j
 - Matplotlib
 - Seaborn
 - PyArrow (formato Parquet)
-- PostgreSQL (apenas no notebook `Geracao_insights.ipynb`)
+- PostgreSQL e SQL (scripts em `sql/` e notebook `Geracao_insights.ipynb`)
 - Jupyter Notebook
 - pytest e Ruff (testes e verificação de estilo)
 - GitHub Actions (integração contínua)
@@ -87,11 +87,15 @@ ANP_analise_dados/
 │
 ├── outputs/                         # Gráficos gerados (PNG)
 │
-├── sql/                             # Reservada para scripts SQL (ainda vazia)
+├── sql/                             # Scripts SQL (PostgreSQL)
+│   ├── 01_criar_tabelas.sql         # Esquema, staging e tabela final
+│   ├── 02_transformar.sql           # Tratamento dos dados em SQL
+│   └── 03_consultas_analise.sql     # Análises em SQL
 │
 ├── src/                             # Código Python reutilizável
 │   ├── __init__.py
 │   ├── analysis.py                  # Estatísticas descritivas
+│   ├── carregar_banco.py            # Carrega os CSVs no PostgreSQL
 │   ├── data_processing.py           # Leitura e tratamento dos CSVs
 │   ├── download.py                  # Baixa os CSVs do site da ANP
 │   ├── main.py                      # Executa o fluxo completo
@@ -289,7 +293,9 @@ pytest            # roda os testes
 ruff check .      # verifica o estilo do código
 ```
 
-A cada push e pull request, o GitHub Actions roda esses mesmos comandos em Python 3.11 e 3.13 (arquivo `.github/workflows/ci.yml`). O selo **CI** no topo deste README mostra se a última verificação passou.
+Os testes dos scripts SQL (`tests/test_banco.py`) precisam de um PostgreSQL e só rodam quando a variável `ANP_TESTE_BANCO=1` está definida, com as variáveis `DB_*` apontando para um **banco de teste** (eles apagam e recriam a tabela `anp.preco_combustivel`). Eles conferem que a carga em SQL gera as mesmas linhas que o Python e que cada consulta de `03_consultas_analise.sql` dá o mesmo resultado que a função de mesmo nome em `src/analysis.py`.
+
+A cada push e pull request, o GitHub Actions roda esses mesmos comandos em Python 3.11 e 3.13, e os testes do banco em um PostgreSQL 16 temporário (arquivo `.github/workflows/ci.yml`). O selo **CI** no topo deste README mostra se a última verificação passou.
 
 ## Análises realizadas
 
@@ -395,6 +401,32 @@ linha_precos_por_produto(df, "outputs")
 grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, 2025), 2025, "outputs")
 ```
 
+## Banco de dados (PostgreSQL)
+
+Além do fluxo em Python, o projeto tem um fluxo equivalente em **SQL**, na pasta `sql/`:
+
+| Arquivo | O que faz |
+|---|---|
+| `01_criar_tabelas.sql` | Cria o esquema `anp`, a tabela de *staging* (CSV bruto, tudo como texto), a tabela final `anp.preco_combustivel` (tipos corretos, índices, `ano` e `mes` calculados automaticamente) e funções que convertem datas e valores sem interromper a carga quando um valor é inválido |
+| `02_transformar.sql` | Trata a *staging* com as mesmas regras do `src/data_processing.py` (datas, vírgula decimal, textos padronizados, unidade do GNV, descarte de linhas inválidas e de duplicatas) e grava na tabela final |
+| `03_consultas_analise.sql` | As análises do projeto em SQL: estatísticas por produto e estado, bandeiras por estado, variação anual (com `LAG`), média por região e razão etanol/gasolina (com `FILTER`) |
+
+**Carga completa** (cria as tabelas, copia os CSVs de `data/raw/` com `COPY` e trata os dados), com as variáveis do `.env.example` definidas:
+
+```bash
+python src/carregar_banco.py
+```
+
+Resultado esperado: `4,331,306 linhas lidas | 9,124 descartadas ou duplicadas | 4,322,182 linhas em anp.preco_combustivel` (cerca de 2 minutos). São exatamente as mesmas linhas da base tratada em Python.
+
+**Rodar as análises** no `psql`, escolhendo o ano:
+
+```bash
+psql -d ANP -v ano=2025 -f sql/03_consultas_analise.sql
+```
+
+Os resultados do SQL e do Python foram conferidos com a base completa e são iguais. A única diferença possível é de 1 centavo em valores arredondados: o PostgreSQL arredonda R$ 2,805 para 2,81 e o pandas, para 2,80.
+
 ## Notebooks
 
 Os notebooks documentam a exploração original. **O fluxo reproduzível está no `src/`**; os notebooks são material de apoio e têm particularidades do ambiente onde foram criados:
@@ -403,7 +435,7 @@ Os notebooks documentam a exploração original. **O fluxo reproduzível está n
 
 Exploração dos dados e geração de indicadores: dimensão da base, tipos das variáveis, valores ausentes, produtos disponíveis, anos e meses, estatística descritiva, preços por produto e por estado e quantidade de bandeiras.
 
-Este notebook lê os dados de um banco **PostgreSQL 17** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. O banco não faz parte do repositório e os scripts de criação/carga ainda não foram adicionados à pasta `sql/`. Para executá-lo é preciso montar esse banco e definir as variáveis de ambiente `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` (veja o modelo em `.env.example`). A senha (`DB_PASSWORD`) é obrigatória e nunca fica escrita no notebook. Execute o notebook a partir da pasta `notebooks/`: a base tratada é salva em `data/processed/dados_anp_tratados.parquet`. **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
+Este notebook lê os dados de um banco **PostgreSQL** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. Para montar o banco, siga a seção [Banco de dados (PostgreSQL)](#banco-de-dados-postgresql). Para executar o notebook é preciso definir as variáveis de ambiente `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` (veja o modelo em `.env.example`). A senha (`DB_PASSWORD`) é obrigatória e nunca fica escrita no notebook. Execute o notebook a partir da pasta `notebooks/`: a base tratada é salva em `data/processed/dados_anp_tratados.parquet`. **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
 
 ### `Tecnicas_visualizacao.ipynb`
 
@@ -411,7 +443,6 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 
 ## Possíveis próximos passos
 
-- Adicionar à pasta `sql/` os scripts de criação do banco e de carga dos CSVs;
 - criar pipeline ETL/ELT;
 - corrigir os preços pela inflação (IPCA) para analisar a variação real;
 - criar um dashboard em Power BI ou Streamlit;
@@ -421,6 +452,6 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 
 Este projeto demonstra competências em:
 
-**Python | Pandas | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | PostgreSQL | Jupyter Notebook | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
+**Python | Pandas | SQL (PostgreSQL: COPY, CTEs, funções de janela, funções PL/pgSQL) | Análise Exploratória | Estatística Descritiva | Data Visualization | Seaborn | Matplotlib | Jupyter Notebook | Testes automatizados (pytest) | CI com GitHub Actions | Organização de código**
 
 O objetivo da organização em `src/` é separar a lógica reutilizável dos notebooks, tornando o projeto mais próximo de uma estrutura utilizada em projetos profissionais de dados.

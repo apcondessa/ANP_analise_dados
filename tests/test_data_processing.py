@@ -48,6 +48,7 @@ def test_textos_padronizados(base):
     assert len(diesel) == 1
     assert diesel["estado"].iloc[0] == "BA"
     assert diesel["bandeira"].iloc[0] == "VIBRA"
+    assert diesel["regiao"].iloc[0] == "NE"  # vinha como " NE "
 
 
 def test_unidade_do_gnv_padronizada(base):
