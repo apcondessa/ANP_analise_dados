@@ -8,12 +8,17 @@ COLUNAS = {
     "Regiao - Sigla": "regiao",
     "Estado - Sigla": "estado",
     "Municipio": "municipio",
+    "CNPJ da Revenda": "cnpj",
     "Produto": "produto",
     "Data da Coleta": "data_coleta",
     "Valor de Venda": "valor_venda",
+    "Unidade de Medida": "unidade",
     "Bandeira": "bandeira",
 }
-COLUNAS_ANALISE = ["data_coleta", "regiao", "estado", "municipio", "bandeira", "produto", "valor_venda"]
+COLUNAS_ANALISE = [
+    "data_coleta", "regiao", "estado", "municipio", "cnpj",
+    "bandeira", "produto", "valor_venda", "unidade",
+]
 
 # Marca de ordem de bytes (BOM) em UTF-8, ou como aparece quando lida como latin1
 _BOM = ("\ufeff", "ï»¿")
@@ -67,10 +72,19 @@ def preparar_dados(df: pd.DataFrame) -> pd.DataFrame:
     df["produto"] = df["produto"].astype("string").str.strip().str.upper()
     df["estado"] = df["estado"].astype("string").str.strip().str.upper()
     df["bandeira"] = df["bandeira"].astype("string").str.strip()
+    # A ANP grafa a unidade do GNV de duas formas ("R$ / m3" e "R$ / m³")
+    df["unidade"] = (
+        df["unidade"].astype("string").str.strip().str.replace("m3", "m³", regex=False)
+    )
     df = df.dropna(subset=["data_coleta", "produto", "valor_venda"])
     df["ano"] = df["data_coleta"].dt.year
     df["mes"] = df["data_coleta"].dt.month
     return df.reset_index(drop=True)
+
+
+def remover_duplicatas(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove registros repetidos (mesmo posto, produto, data, preço e demais campos)."""
+    return df.drop_duplicates().reset_index(drop=True)
 
 
 def carregar_csvs(pasta_raw: str | Path, verbose: bool = True) -> pd.DataFrame:
@@ -90,12 +104,16 @@ def carregar_csvs(pasta_raw: str | Path, verbose: bool = True) -> pd.DataFrame:
         dados.append(parcial)
     bruto = pd.concat(dados, ignore_index=True)
     del dados
+    total_bruto = len(bruto)
     tratado = preparar_dados(bruto)
+    del bruto
+    total_validas = len(tratado)
+    tratado = remover_duplicatas(tratado)
     if verbose:
-        descartadas = len(bruto) - len(tratado)
         print(
-            f"  {len(bruto):,} linhas lidas em {len(arquivos)} arquivos | "
-            f"{descartadas:,} descartadas (linhas vazias ou sem data/produto/valor)"
+            f"  {total_bruto:,} linhas lidas em {len(arquivos)} arquivos | "
+            f"{total_bruto - total_validas:,} descartadas (linhas vazias ou sem data/produto/valor) | "
+            f"{total_validas - len(tratado):,} duplicadas removidas"
         )
     return tratado
 

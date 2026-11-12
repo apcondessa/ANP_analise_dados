@@ -76,7 +76,7 @@ ANP_analise_dados/
 ## Requisitos
 
 - **Python 3.11 ou superior** (o projeto foi desenvolvido com Python 3.14).
-- Cerca de **2 GB de memória RAM livre** (pico medido: 1,8 GB) e **1 GB de disco** para os dados brutos.
+- Cerca de **2,5 GB de memória RAM livre** (pico medido: 2,0 GB) e **1 GB de disco** para os dados brutos.
 
 ## Obtendo os dados
 
@@ -84,7 +84,7 @@ Os CSVs da ANP **não estão neste repositório** (somam cerca de 750 MB). Para 
 
 1. Acesse a série histórica de preços de combustíveis da ANP:
    <https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/serie-historica-de-precos-de-combustiveis>
-2. Baixe os **10 arquivos semestrais de 2021 a 2025** (1º e 2º semestre de cada ano).
+2. Baixe os **10 arquivos semestrais de 2021 a 2025** (1º e 2º semestre de cada ano), na seção de combustíveis automotivos. A partir de 2022 os arquivos vêm compactados (`.zip`): extraia o CSV de cada um. Atenção: o link do **1º semestre de 2022** se chama `precos-semestrais-ca.zip` (e não `ca-2022-01`).
 3. Coloque os arquivos, sem alterar o conteúdo, na pasta `data/raw/`. O nome dos arquivos não importa: o código lê todos os `*.csv` da pasta.
 
 > Os números deste projeto foram obtidos com esses 10 arquivos. Usar outro período, ou repetir um semestre, altera os resultados.
@@ -155,7 +155,7 @@ Para **também gerar todos os gráficos** em `outputs/`:
 python src/main.py --graficos
 ```
 
-A geração dos gráficos leva de 2 a 3 minutos, quase todo o tempo no gráfico de evolução de preços (cálculo do intervalo de confiança sobre 4,3 milhões de linhas). Ele gera 14 imagens PNG:
+O fluxo completo, com os gráficos, leva cerca de 1 minuto. Ele gera 14 imagens PNG:
 
 - `<produto>_valor_venda.png`: boxplot geral de cada um dos 6 produtos;
 - `<produto>_valor_venda_por_estado.png`: boxplot por estado de cada produto;
@@ -167,11 +167,11 @@ A geração dos gráficos leva de 2 a 3 minutos, quase todo o tempo no gráfico 
 Ao final da etapa de preparação, o script informa algo como:
 
 ```text
-4,331,306 linhas lidas em 10 arquivos | 9,114 descartadas (linhas vazias ou sem data/produto/valor)
-Base tratada: 4,322,192 linhas x 9 colunas
+4,331,306 linhas lidas em 10 arquivos | 9,114 descartadas (linhas vazias ou sem data/produto/valor) | 10 duplicadas removidas
+Base tratada: 4,322,182 linhas x 11 colunas
 ```
 
-As 9.114 linhas descartadas são linhas totalmente vazias no final de um dos arquivos da ANP. Se você obtiver esses mesmos totais, a base foi reproduzida corretamente.
+As 9.114 linhas descartadas são linhas totalmente vazias no final de um dos arquivos da ANP. As 10 duplicadas são registros idênticos (mesmo posto, produto, data e preço) que aparecem duas vezes. Se você obtiver esses mesmos totais, a base foi reproduzida corretamente.
 
 ## Fluxo de dados
 
@@ -203,6 +203,8 @@ O módulo `src/data_processing.py` concentra as etapas de preparação da base:
 - conversão do valor de venda para formato numérico;
 - padronização de produto, estado e bandeira;
 - remoção de registros sem informações essenciais;
+- remoção de registros duplicados;
+- padronização da unidade de medida (o GNV é vendido em R$/m³; os demais combustíveis, em R$/litro);
 - criação das variáveis `ano` e `mes`;
 - armazenamento da base tratada em Pickle.
 
@@ -215,7 +217,7 @@ df = carregar_csvs("data/raw")
 salvar_pickle(df, "data/processed/dados_anp_tratados.pkl")
 ```
 
-Colunas da base tratada: `data_coleta`, `regiao`, `estado`, `municipio`, `bandeira`, `produto`, `valor_venda`, `ano`, `mes`.
+Colunas da base tratada: `data_coleta`, `regiao`, `estado`, `municipio`, `cnpj` (do posto), `bandeira`, `produto`, `valor_venda`, `unidade`, `ano`, `mes`.
 
 ## Análises realizadas
 
@@ -255,8 +257,8 @@ resultado = bandeiras_por_estado(df)
 
 O módulo `src/visualization.py` reúne funções para geração de gráficos:
 
-- evolução dos preços por produto;
-- boxplot geral e por estado de cada produto;
+- evolução do preço médio mensal por produto, com o GNV (R$/m³) em painel separado dos combustíveis líquidos (R$/litro);
+- boxplot geral e por estado de cada produto, com a unidade no título, os estados ordenados pela mediana do preço e o número de coletas de cada estado;
 - quantidade de bandeiras por estado.
 
 Quando uma pasta de saída é informada, o gráfico é salvo em PNG e a figura é fechada.
@@ -273,7 +275,7 @@ from src.visualization import (
 boxplot_produto_estado(df, "DIESEL S10", "outputs")
 boxplot_produto_geral(df, "DIESEL S10", "outputs")
 grafico_bandeiras_estado(bandeiras_por_estado(df), "outputs")
-linha_precos_por_produto(df, "outputs", errorbar=None)  # versão rápida, sem intervalo de confiança
+linha_precos_por_produto(df, "outputs")
 ```
 
 ## Notebooks
