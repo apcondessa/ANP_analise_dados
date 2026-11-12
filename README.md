@@ -1,6 +1,9 @@
 # Projeto ANP — Análise de Preços de Combustíveis
 
 [![CI](https://github.com/apcondessa/ANP_analise_dados/actions/workflows/ci.yml/badge.svg)](https://github.com/apcondessa/ANP_analise_dados/actions/workflows/ci.yml)
+[![Dashboard online](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://anp-combustiveis.streamlit.app/)
+
+**📊 Dashboard interativo online: <https://anp-combustiveis.streamlit.app/>**
 
 Projeto de **Data Analytics** desenvolvido para explorar dados de preços de combustíveis comercializados no Brasil, com foco em análise exploratória, estatística descritiva e visualização.
 
@@ -411,7 +414,9 @@ grafico_razao_etanol_gasolina(razao_etanol_gasolina(df, 2025), 2025, "outputs")
 
 ## Dashboard interativo (Streamlit)
 
-![Dashboard](dashboard/screenshot.png)
+**Acesse online: <https://anp-combustiveis.streamlit.app/>** (não precisa instalar nada)
+
+[![Dashboard](dashboard/screenshot.png)](https://anp-combustiveis.streamlit.app/)
 
 O dashboard permite explorar os preços escolhendo o **combustível**, as **regiões**, os **estados** e o **período**. Ele mostra:
 
@@ -422,7 +427,7 @@ O dashboard permite explorar os preços escolhendo o **combustível**, as **regi
 - **Regiões**: preço médio por região;
 - **Dados**: tabela por estado (média, mínimo, máximo, coletas e bandeiras), com download em CSV.
 
-Para rodar no seu computador, a partir da raiz do projeto:
+Para rodar no seu próprio computador, a partir da raiz do projeto:
 
 ```bash
 pip install -r dashboard/requirements.txt
@@ -433,12 +438,14 @@ O navegador abre em `http://localhost:8501`.
 
 **Não precisa baixar os dados da ANP:** o dashboard usa um resumo mensal por estado e produto (`dashboard/dados/`, cerca de 120 KB), que fica no repositório. Com somas e contagens, as médias são exatamente as mesmas da base completa. O resumo é atualizado sempre que você roda `python src/main.py`.
 
-### Publicar na internet (gratuito)
+### Como foi publicado
+
+O dashboard está hospedado gratuitamente no **Streamlit Community Cloud**, a partir da branch `main` deste repositório: cada alteração enviada para a `main` atualiza o site automaticamente. Para publicar uma cópia própria:
 
 1. Acesse <https://share.streamlit.io> e entre com a sua conta do GitHub.
 2. Clique em **Create app** (ou **New app**) para publicar um app a partir do GitHub.
 3. Preencha: repositório `apcondessa/ANP_analise_dados`, branch `main` e arquivo `dashboard/app.py`.
-4. Clique em **Deploy**. Em alguns minutos o dashboard terá um endereço público, que você pode colocar no topo deste README e no seu currículo.
+4. Clique em **Deploy**. Em alguns minutos o dashboard terá um endereço público.
 
 O Streamlit Community Cloud instala as dependências de `dashboard/requirements.txt` automaticamente.
 
@@ -486,7 +493,6 @@ Técnicas de visualização: séries temporais, boxplots, comparações por esta
 
 - criar pipeline ETL/ELT;
 - corrigir os preços pela inflação (IPCA) para analisar a variação real;
-- publicar o dashboard no Streamlit Community Cloud (passo a passo na seção do dashboard);
 - automatizar a atualização dos dados.
 
 ## Projeto para portfólio
