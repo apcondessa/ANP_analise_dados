@@ -43,7 +43,7 @@ A base utilizada é composta por arquivos disponibilizados pela **Agência Nacio
 ## Estrutura do projeto
 
 ```text
-Projeto_ANP/
+ANP_analise_dados/
 │
 ├── data/
 │   ├── raw/                         # CSVs originais da ANP (não versionados)
@@ -52,7 +52,7 @@ Projeto_ANP/
 │
 ├── notebooks/
 │   ├── Geracao_insights.ipynb       # Análise exploratória e indicadores
-│   └── Tecnicas_vizualizacao.ipynb  # Visualizações
+│   └── Tecnicas_visualizacao.ipynb  # Visualizações
 │
 ├── outputs/                         # Gráficos gerados (PNG)
 │
@@ -68,6 +68,7 @@ Projeto_ANP/
 ├── requirements/
 │   └── requirements.txt
 │
+├── .env.example                 # Modelo das variáveis do banco (copie para .env)
 ├── .gitignore
 └── README.md
 ```
@@ -95,8 +96,8 @@ Formato esperado dos CSVs: separador `;`, decimal com vírgula, datas `dd/mm/aaa
 ### 1. Clonar o repositório
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
-cd Projeto_ANP
+git clone https://github.com/apcondessa/ANP_analise_dados.git
+cd ANP_analise_dados
 ```
 
 ### 2. Criar e ativar o ambiente virtual
@@ -283,11 +284,11 @@ Os notebooks documentam a exploração original. **O fluxo reproduzível está n
 
 Exploração dos dados e geração de indicadores: dimensão da base, tipos das variáveis, valores ausentes, produtos disponíveis, anos e meses, estatística descritiva, preços por produto e por estado e quantidade de bandeiras.
 
-Este notebook lê os dados de um banco **PostgreSQL 17** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. O banco não faz parte do repositório e os scripts de criação/carga ainda não foram adicionados à pasta `sql/`. Para executá-lo é preciso montar esse banco e configurar a conexão (recomenda-se usar variáveis de ambiente para as credenciais: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`). **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
+Este notebook lê os dados de um banco **PostgreSQL 17** local (banco `ANP`, tabela `anp.preco_combustivel`), e não diretamente dos CSVs. O banco não faz parte do repositório e os scripts de criação/carga ainda não foram adicionados à pasta `sql/`. Para executá-lo é preciso montar esse banco e definir as variáveis de ambiente `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT` (veja o modelo em `.env.example`). A senha (`DB_PASSWORD`) é obrigatória e nunca fica escrita no notebook. Execute o notebook a partir da pasta `notebooks/`: a base tratada é salva em `data/processed/`. **Quem apenas quer reproduzir a base e as análises não precisa de PostgreSQL:** o `src/` faz o mesmo a partir dos CSVs.
 
-### `Tecnicas_vizualizacao.ipynb`
+### `Tecnicas_visualizacao.ipynb`
 
-Técnicas de visualização: séries temporais, boxplots, comparações por estado, gráficos de barras e análise da quantidade de bandeiras. Lê o arquivo `data/processed/dados_anp_tratados.pkl`, que é gerado por `python src/main.py`. Para executá-lo, é necessário instalar o Jupyter (`pip install jupyter`) e ajustar o caminho da célula que aponta para a pasta `data/processed` (no notebook original, um caminho absoluto do computador do autor).
+Técnicas de visualização: séries temporais, boxplots, comparações por estado, gráficos de barras e análise da quantidade de bandeiras. Lê o arquivo `data/processed/dados_anp_tratados.pkl`, que é gerado por `python src/main.py`. Para executá-lo, é necessário instalar o Jupyter (`pip install jupyter`) e abrir o notebook a partir da pasta `notebooks/` (os caminhos são relativos a ela).
 
 ## Possíveis próximos passos
 
