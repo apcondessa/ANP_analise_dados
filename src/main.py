@@ -19,9 +19,12 @@ from src.analysis import (  # noqa: E402
     media_por_regiao,
     razao_etanol_gasolina,
     variacao_anual,
+    variacao_anual_real,
+    variacao_no_periodo,
 )
 from src.dashboard_dados import PASTA_DASHBOARD, gerar_dados_dashboard  # noqa: E402
 from src.data_processing import carregar_csvs, salvar_parquet  # noqa: E402
+from src.inflacao import ARQUIVO_IPCA, carregar_ipca, deflacionar, fatores_correcao  # noqa: E402
 
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed" / "dados_anp_tratados.parquet"
@@ -39,7 +42,8 @@ def main() -> None:
     df = carregar_csvs(RAW)
     salvar_parquet(df, PROCESSED)
     print(f"Base tratada salva em {PROCESSED}")
-    gerar_dados_dashboard(df)
+    ipca = carregar_ipca() if ARQUIVO_IPCA.exists() else None
+    gerar_dados_dashboard(df, ipca=ipca)
     print(f"Dados do dashboard salvos em {PASTA_DASHBOARD}")
 
     print(f"\nBase tratada: {df.shape[0]:,} linhas x {df.shape[1]} colunas")
@@ -60,6 +64,16 @@ def main() -> None:
     )
     print(razao.to_string(index=False))
 
+    if ipca is None:
+        print(f"\nIPCA não encontrado em {ARQUIVO_IPCA}: análise real pulada.")
+    else:
+        base = fatores_correcao(ipca).index.max()
+        df_real = deflacionar(df, ipca)
+        print(f"\nPreço médio anual nominal e real (corrigido pelo IPCA, em R$ de {base:%m/%Y}):")
+        print(variacao_anual_real(df_real).to_string(index=False))
+        print("\nVariação da média anual no período, nominal x real (%):")
+        print(variacao_no_periodo(df_real).to_string(index=False))
+
     if args.graficos:
         import matplotlib
 
@@ -67,7 +81,7 @@ def main() -> None:
         from src.visualization import gerar_todos_graficos
 
         print(f"\nGerando gráficos em {OUTPUTS} ...")
-        gerar_todos_graficos(df, OUTPUTS)
+        gerar_todos_graficos(df, OUTPUTS, ipca=ipca)
         print("Gráficos gerados.")
 
 

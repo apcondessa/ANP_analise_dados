@@ -127,3 +127,51 @@ def razao_etanol_gasolina(df: pd.DataFrame, ano: int | None = None) -> pd.DataFr
         .sort_values(["razao", "estado"])
         .reset_index(drop=True)
     )
+
+
+def variacao_anual_real(df: pd.DataFrame) -> pd.DataFrame:
+    """Médias anuais nominal e real (corrigida pelo IPCA) e suas variações (%) anuais.
+
+    ``df`` precisa da coluna ``valor_real`` (veja ``inflacao.deflacionar``).
+    """
+    medias = (
+        df.groupby(["produto", "ano"], observed=True)[["valor_venda", "valor_real"]]
+        .mean()
+        .reset_index()
+        .rename(columns={"valor_venda": "media_nominal", "valor_real": "media_real"})
+        .astype({"produto": str})
+        .sort_values(["produto", "ano"])
+    )
+    por_produto = medias.groupby("produto")
+    medias["variacao_nominal_pct"] = por_produto["media_nominal"].pct_change() * 100
+    medias["variacao_real_pct"] = por_produto["media_real"].pct_change() * 100
+    return medias.round(
+        {"media_nominal": 2, "media_real": 2, "variacao_nominal_pct": 1, "variacao_real_pct": 1}
+    ).reset_index(drop=True)
+
+
+def variacao_no_periodo(df: pd.DataFrame) -> pd.DataFrame:
+    """Variação (%) da média anual entre o primeiro e o último ano, nominal e real.
+
+    ``df`` precisa da coluna ``valor_real`` (veja ``inflacao.deflacionar``).
+    """
+    medias = df.groupby(["produto", "ano"], observed=True)[["valor_venda", "valor_real"]].mean()
+    primeiro, ultimo = int(df["ano"].min()), int(df["ano"].max())
+    inicio = medias.xs(primeiro, level="ano")
+    fim = medias.xs(ultimo, level="ano")
+    resultado = pd.DataFrame(
+        {
+            "ano_inicial": primeiro,
+            "ano_final": ultimo,
+            "variacao_nominal_pct": (fim["valor_venda"] / inicio["valor_venda"] - 1) * 100,
+            "variacao_real_pct": (fim["valor_real"] / inicio["valor_real"] - 1) * 100,
+        }
+    ).dropna()
+    resultado.index = resultado.index.astype(str)
+    return (
+        resultado.round({"variacao_nominal_pct": 1, "variacao_real_pct": 1})
+        .rename_axis("produto")
+        .reset_index()
+        .sort_values("variacao_real_pct", ascending=False)
+        .reset_index(drop=True)
+    )

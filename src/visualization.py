@@ -319,13 +319,58 @@ def grafico_media_por_regiao(
     return fig, ax
 
 
+def grafico_nominal_vs_real(
+    df_real: pd.DataFrame,
+    base: pd.Timestamp,
+    output_dir: str | Path | None = None,
+    produtos: tuple[str, ...] = ("GASOLINA", "ETANOL", "DIESEL S10"),
+):
+    """Preço médio mensal nominal e corrigido pelo IPCA, um painel por produto.
+
+    ``df_real`` precisa da coluna ``valor_real`` (veja ``inflacao.deflacionar``) e
+    ``base`` é o mês de referência dos valores reais.
+    """
+    mensal = (
+        df_real[df_real["produto"].isin(produtos)]
+        .groupby(["produto", pd.Grouper(key="data_coleta", freq="MS")], observed=True)[
+            ["valor_venda", "valor_real"]
+        ]
+        .mean()
+        .reset_index()
+    )
+    with sns.axes_style(ESTILO):
+        fig, eixos = plt.subplots(1, len(produtos), figsize=(16, 5), sharey=True)
+        for ax, produto in zip(eixos, produtos, strict=True):
+            serie = mensal[mensal["produto"] == produto]
+            ax.plot(serie["data_coleta"], serie["valor_venda"], color="#8a8a8a",
+                    linewidth=2, label="Nominal (preço da época)")
+            ax.plot(serie["data_coleta"], serie["valor_real"], color=_cor(produto),
+                    linewidth=2.5, label=f"Real (R$ de {base:%m/%Y})")
+            ax.set_title(f"{_rotulo(produto)} ({_unidade(produto)})", loc="left", fontsize=13)
+            ax.set_xlabel("")
+            ax.tick_params(axis="x", rotation=45)
+            ax.legend(loc="upper right", frameon=False, fontsize=9)
+        eixos[0].set_ylabel("Preço médio (R$)")
+        fig.suptitle(
+            f"Preço médio mensal: nominal x corrigido pelo IPCA (em reais de {base:%m/%Y})",
+            x=0.01, ha="left", fontsize=16,
+        )
+        fig.tight_layout()
+    _finalizar(fig, output_dir, "precos_nominais_vs_reais.png")
+    return fig, eixos
+
+
 def gerar_todos_graficos(
-    df: pd.DataFrame, output_dir: str | Path, incluir_linha: bool = True
+    df: pd.DataFrame,
+    output_dir: str | Path,
+    incluir_linha: bool = True,
+    ipca: pd.DataFrame | None = None,
 ) -> None:
     """Gera todos os gráficos do projeto na pasta ``output_dir``.
 
     Os gráficos de razão etanol/gasolina e de preço por região usam o ano
-    mais recente da base.
+    mais recente da base. Com ``ipca`` (veja ``inflacao.carregar_ipca``), gera também o
+    gráfico de preços nominais x corrigidos pela inflação.
     """
     from src.analysis import (
         bandeiras_por_estado,
@@ -353,3 +398,9 @@ def gerar_todos_graficos(
         grafico_variacao_anual(variacao, output_dir)
     else:
         print("  variação anual: pulada (a base tem um único ano)")
+    if ipca is not None:
+        from src.inflacao import deflacionar, fatores_correcao
+
+        base = fatores_correcao(ipca).index.max()
+        print(f"  preços nominais x reais (IPCA, R$ de {base:%m/%Y})...")
+        grafico_nominal_vs_real(deflacionar(df, ipca), base, output_dir)

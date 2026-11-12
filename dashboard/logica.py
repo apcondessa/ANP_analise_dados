@@ -142,3 +142,27 @@ def tabela_estados(dados: pd.DataFrame, bandeiras: pd.DataFrame, anos: list[int]
         .sort_values("media", ascending=False)
         .reset_index(drop=True)
     )
+
+
+def tem_ipca(precos: pd.DataFrame) -> bool:
+    """Indica se o resumo traz o fator de correção pelo IPCA."""
+    return "fator_ipca" in precos.columns and precos["fator_ipca"].notna().all()
+
+
+def mes_base_ipca(precos: pd.DataFrame) -> pd.Timestamp:
+    """Mês de referência dos valores reais (o mês em que o fator vale 1)."""
+    return pd.Timestamp(precos.loc[precos["fator_ipca"].sub(1).abs() < 1e-12, "mes"].max())
+
+
+def em_reais_corrigidos(precos: pd.DataFrame) -> pd.DataFrame:
+    """Converte soma, mínimo e máximo para reais do mês de referência do IPCA.
+
+    O fator é o mesmo para todas as coletas de um mês, então soma x fator dá
+    exatamente a soma dos preços corrigidos.
+    """
+    if not tem_ipca(precos):
+        raise ValueError("O resumo não tem a coluna fator_ipca. Rode `python src/main.py`.")
+    corrigido = precos.copy()
+    for coluna in ["soma", "minimo", "maximo"]:
+        corrigido[coluna] = corrigido[coluna] * corrigido["fator_ipca"]
+    return corrigido
